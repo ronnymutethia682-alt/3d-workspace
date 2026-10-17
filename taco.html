@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<base href="https://threejs.org/editor/">
+		<title>three.js editor - yellow taco live build</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link rel="apple-touch-icon" href="images/icon.png">
+		<link rel="manifest" href="manifest.json">
+		<link rel="shortcut icon" href="../files/favicon_white.ico" media="(prefers-color-scheme: dark)"/>
+		<link rel="shortcut icon" href="../files/favicon.ico" media="(prefers-color-scheme: light)" />
+	</head>
+	<body>
+
+		
+
+		<link rel="stylesheet" href="css/main.css">
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js",
+					"three/webgpu": "../build/three.webgpu.js",
+					"three/addons/": "../examples/jsm/",
+
+					"three/examples/": "../examples/",
+					"three-gpu-pathtracer": "https://cdn.jsdelivr.net/npm/three-gpu-pathtracer@0.0.23/build/index.module.js",
+					"three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.7.4/build/index.module.js"
+				}
+			}
+		</script>
+
+		<script src="https://cdn.jsdelivr.net/gh/google/draco@1.5.7/javascript/draco_encoder.js"></script>
+
+		<link rel="stylesheet" href="js/libs/codemirror/codemirror.css">
+		<link rel="stylesheet" href="js/libs/codemirror/theme/monokai.css">
+		<script src="js/libs/codemirror/codemirror.js"></script>
+		<script src="js/libs/codemirror/mode/javascript.js"></script>
+		<script src="js/libs/codemirror/mode/glsl.js"></script>
+
+		<script src="js/libs/esprima.js"></script>
+		<script src="js/libs/jsonlint.js"></script>
+
+		<link rel="stylesheet" href="js/libs/codemirror/addon/dialog.css">
+		<link rel="stylesheet" href="js/libs/codemirror/addon/show-hint.css">
+		<link rel="stylesheet" href="js/libs/codemirror/addon/tern.css">
+
+		<script src="js/libs/codemirror/addon/dialog.js"></script>
+		<script src="js/libs/codemirror/addon/show-hint.js"></script>
+		<script src="js/libs/codemirror/addon/tern.js"></script>
+		<script src="js/libs/acorn/acorn.js"></script>
+		<script src="js/libs/acorn/acorn_loose.js"></script>
+		<script src="js/libs/acorn/walk.js"></script>
+		<script src="js/libs/ternjs/polyfill.js"></script>
+		<script src="js/libs/ternjs/signal.js"></script>
+		<script src="js/libs/ternjs/tern.js"></script>
+		<script src="js/libs/ternjs/def.js"></script>
+		<script src="js/libs/ternjs/comment.js"></script>
+		<script src="js/libs/ternjs/infer.js"></script>
+		<script src="js/libs/ternjs/doc_comment.js"></script>
+		<script src="js/libs/signals.min.js"></script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+
+			import { Editor } from './js/Editor.js';
+			import { Viewport } from './js/Viewport.js';
+			import { Toolbar } from './js/Toolbar.js';
+			import { Script } from './js/Script.js';
+			import { Player } from './js/Player.js';
+			import { Sidebar } from './js/Sidebar.js';
+			import { Menubar } from './js/Menubar.js';
+			import { Resizer } from './js/Resizer.js';
+			import { AnimationResizer } from './js/AnimationResizer.js';
+			import { Animation } from './js/Animation.js';
+
+			import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+			window.URL = window.URL || window.webkitURL;
+			window.BlobBuilder = window.BlobBuilder || window.WebKitBlobBuilder || window.MozBlobBuilder;
+
+			//
+
+			const editor = new Editor();
+
+			window.editor = editor; // Expose editor to Console
+			window.THREE = THREE; // Expose THREE to APP Scripts and Console
+
+			THREE.ObjectLoader.registerGeometry( 'TextGeometry', TextGeometry );
+
+			const viewport = new Viewport( editor );
+			document.body.appendChild( viewport.dom );
+
+			const toolbar = new Toolbar( editor );
+			document.body.appendChild( toolbar.dom );
+
+			const script = new Script( editor );
+			document.body.appendChild( script.dom );
+
+			const player = new Player( editor );
+			document.body.appendChild( player.dom );
+
+			const sidebar = new Sidebar( editor );
+			document.body.appendChild( sidebar.dom );
+
+			const menubar = new Menubar( editor );
+			document.body.appendChild( menubar.dom );
+
+			const resizer = new Resizer( editor );
+			document.body.appendChild( resizer.dom );
+
+			const animation = new Animation( editor );
+			document.body.appendChild( animation.dom );
+
+			const animationResizer = new AnimationResizer( editor );
+			document.body.appendChild( animationResizer.dom );
+
+			editor.signals.animationPanelChanged.add( function ( height ) {
+
+				const visible = height !== false;
+
+				viewport.dom.classList.toggle( 'with-animation', visible );
+				toolbar.dom.classList.toggle( 'with-animation', visible );
+
+				if ( visible ) {
+
+					viewport.dom.style.bottom = height + 'px';
+					toolbar.dom.style.bottom = ( height + 20 ) + 'px';
+
+				} else {
+
+					viewport.dom.style.bottom = '';
+					toolbar.dom.style.bottom = '';
+
+				}
+
+				editor.signals.windowResize.dispatch();
+
+			} );
+
+			//
+
+			editor.storage.init( function () {
+
+				editor.storage.get( async function ( state ) {
+
+					if ( true ) return; // fresh scene for the live sack build
+
+					if ( state !== undefined ) {
+
+						await editor.fromJSON( state );
+
+					} else {
+
+						editor.signals.sceneEnvironmentChanged.dispatch( 'Default' );
+
+					}
+
+					const selected = editor.config.getKey( 'selected' );
+
+					if ( selected !== undefined ) {
+
+						editor.selectByUuid( selected );
+
+					}
+
+				} );
+
+				//
+
+				let timeout;
+
+				function saveState() {
+
+					if ( editor.config.getKey( 'autosave' ) === false ) {
+
+						return;
+
+					}
+
+					clearTimeout( timeout );
+
+					timeout = setTimeout( function () {
+
+						editor.signals.savingStarted.dispatch();
+
+						timeout = setTimeout( function () {
+
+							editor.storage.set( editor.toJSON() );
+
+							editor.signals.savingFinished.dispatch();
+
+						}, 100 );
+
+					}, 1000 );
+
+				}
+
+				const signals = editor.signals;
+
+				signals.cameraResetted.add( saveState );
+				signals.geometryChanged.add( saveState );
+				signals.objectAdded.add( saveState );
+				signals.objectChanged.add( saveState );
+				signals.objectRemoved.add( saveState );
+				signals.materialChanged.add( saveState );
+				signals.sceneBackgroundChanged.add( saveState );
+				signals.sceneEnvironmentChanged.add( saveState );
+				signals.sceneFogChanged.add( saveState );
+				signals.sceneGraphChanged.add( saveState );
+				signals.scriptChanged.add( saveState );
+				signals.historyChanged.add( saveState );
+
+			} );
+
+			//
+
+			document.addEventListener( 'dragover', function ( event ) {
+
+				event.preventDefault();
+				event.dataTransfer.dropEffect = 'copy';
+
+			} );
+
+			document.addEventListener( 'drop', function ( event ) {
+
+				event.preventDefault();
+
+				if ( event.dataTransfer.types[ 0 ] === 'text/plain' ) return; // Outliner drop
+
+				if ( event.dataTransfer.items ) {
+
+					// DataTransferItemList supports folders
+
+					editor.loader.loadItemList( event.dataTransfer.items );
+
+				} else {
+
+					editor.loader.loadFiles( event.dataTransfer.files );
+
+				}
+
+			} );
+
+			function onWindowResize() {
+
+				editor.signals.windowResize.dispatch();
+
+			}
+
+			window.addEventListener( 'resize', onWindowResize );
+
+			onWindowResize();
+
+			//
+
+			let isLoadingFromHash = true;
+			// ---------- Live build of a yellow taco, step by step, inside the editor ----------
+			const { AddObjectCommand } = await import( './js/commands/AddObjectCommand.js' );
+			const { SetGeometryCommand } = await import( './js/commands/SetGeometryCommand.js' );
+			const { SetMaterialColorCommand } = await import( './js/commands/SetMaterialColorCommand.js' );
+
+			const term = document.createElement( 'div' );
+			term.style.cssText = 'position:fixed;left:8px;bottom:8px;width:min(520px,70vw);height:34vh;z-index:50;background:rgba(10,12,10,0.92);color:#7CFC7C;font:12px/1.45 Menlo,Consolas,monospace;border-radius:8px;box-shadow:0 4px 18px #0008;display:flex;flex-direction:column;';
+			term.innerHTML = '<div style="background:#222;color:#ccc;padding:4px 10px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between"><span>build log: yellow taco</span><span id="termx" style="cursor:pointer">hide</span></div><pre id="termbody" style="margin:0;padding:8px 10px;overflow:auto;flex:1;white-space:pre-wrap"></pre>';
+			document.body.appendChild( term );
+			const body = term.querySelector( '#termbody' );
+			term.querySelector( '#termx' ).onclick = () => { body.style.display = body.style.display === 'none' ? '' : 'none'; term.style.height = body.style.display === 'none' ? 'auto' : '34vh'; };
+			const log = ( text, color ) => { const line = document.createElement( 'div' ); line.textContent = text; if ( color ) line.style.color = color; body.appendChild( line ); body.scrollTop = body.scrollHeight; console.log( text ); };
+			const cmd = ( text ) => log( '$ ' + text, '#e6e6e6' );
+			const wait = ( ms ) => new Promise( r => setTimeout( r, ms ) );
+			const stats = () => { let o = 0, v = 0; editor.scene.traverse( x => { if ( x.isMesh ) { o ++; v += x.geometry.attributes.position.count; } } ); return o + ' meshes, ' + v + ' vertices'; };
+			const add = ( obj ) => editor.execute( new AddObjectCommand( editor, obj ) );
+
+			// folded-tortilla shell: a disc of radius R folded along the X axis around a bend of radius RHO
+			const R = 1.2, RHO = 0.62, NX = 48, NS = 28;
+			function shellGeometry( xMax ) {
+				const pos = [], idx = [];
+				for ( let i = 0; i <= NX; i ++ ) {
+					const x = - R + ( xMax + R ) * i / NX;
+					const w = Math.sqrt( Math.max( R * R - x * x, 0 ) );
+					for ( let j = 0; j <= NS; j ++ ) {
+						const v = ( - 1 + 2 * j / NS ) * w, phi = v / RHO;
+						pos.push( x, RHO * ( 1 - Math.cos( phi ) ) - 0.55, RHO * Math.sin( phi ) );
+					}
+				}
+				for ( let i = 0; i < NX; i ++ ) for ( let j = 0; j < NS; j ++ ) {
+					const a = i * ( NS + 1 ) + j, b = a + NS + 1;
+					idx.push( a, b, a + 1, b, b + 1, a + 1 );
+				}
+				const g = new THREE.BufferGeometry();
+				g.setAttribute( 'position', new THREE.Float32BufferAttribute( pos, 3 ) );
+				g.setIndex( idx ); g.computeVertexNormals();
+				return g;
+			}
+
+			await wait( 1500 );
+			log( '# three.js r' + THREE.REVISION + ' editor ready. Building a yellow taco at the centre (0, 0, 0).' );
+			await wait( 1000 );
+
+			cmd( 'add AmbientLight(0xffffff, 0.8)' );
+			const amb = new THREE.AmbientLight( 0xffffff, 0.8 ); amb.name = 'Ambient light'; add( amb );
+			await wait( 600 );
+			cmd( 'add DirectionalLight(0xffffff, 2.5) at (3, 5, 4)' );
+			const sun = new THREE.DirectionalLight( 0xffffff, 2.5 ); sun.name = 'Sun'; sun.position.set( 3, 5, 4 ); add( sun );
+			await wait( 600 );
+			cmd( 'add DirectionalLight(0xffffff, 0.8) at (-4, 2, -3)' );
+			const fill = new THREE.DirectionalLight( 0xffffff, 0.8 ); fill.name = 'Fill light'; fill.position.set( - 4, 2, - 3 ); add( fill );
+			log( 'ok  3 lights' );
+			await wait( 800 );
+
+			cmd( 'add Mesh(CircleGeometry(2.4, 48)) "Plate" at y = -0.57' );
+			const plate = new THREE.Mesh( new THREE.CircleGeometry( 2.4, 48 ), new THREE.MeshStandardMaterial( { color: 0xf4f4f4, roughness: 0.6 } ) );
+			plate.name = 'Plate'; plate.rotation.x = - Math.PI / 2; plate.position.y = - 0.57; add( plate );
+			await wait( 800 );
+
+			cmd( 'add Mesh(foldedTortilla(R=1.2, bend=0.62)) "Taco shell", white, double-sided' );
+			const shellMat = new THREE.MeshStandardMaterial( { color: 0xffffff, roughness: 0.75, side: THREE.DoubleSide } ); shellMat.name = 'Yellow taco shell';
+			const shell = new THREE.Mesh( shellGeometry( - R + 0.15 ), shellMat ); shell.name = 'Taco shell'; add( shell );
+			for ( let k = 1; k <= 10; k ++ ) {
+				const xMax = - R + 0.15 + ( 2 * R - 0.15 ) * k / 10;
+				cmd( 'SetGeometry "Taco shell" -> fold tortilla from x=-1.20 to x=' + xMax.toFixed( 2 ) );
+				editor.execute( new SetGeometryCommand( editor, shell, shellGeometry( xMax ) ) );
+				await wait( 450 );
+			}
+			log( 'ok  shell: ' + shell.geometry.attributes.position.count + ' vertices' );
+			await wait( 700 );
+			cmd( 'SetMaterialColor "Taco shell".color = #F5C518 (yellow)' );
+			editor.execute( new SetMaterialColorCommand( editor, shell, 'color', 0xF5C518 ) );
+			log( 'ok  taco shell is yellow' );
+			await wait( 900 );
+
+			cmd( 'add Mesh(CapsuleGeometry(0.33, 1.1)) "Meat filling" inside the fold' );
+			const meat = new THREE.Mesh( new THREE.CapsuleGeometry( 0.33, 1.1, 6, 16 ), new THREE.MeshStandardMaterial( { color: 0x7a4220, roughness: 1 } ) );
+			meat.name = 'Meat filling'; meat.rotation.z = Math.PI / 2; meat.scale.set( 1, 1, 0.9 ); meat.position.set( 0, - 0.02, 0 ); add( meat );
+			await wait( 700 );
+			const lettuceMat = new THREE.MeshStandardMaterial( { color: 0x4caf2e, roughness: 0.8 } );
+			const tomatoMat = new THREE.MeshStandardMaterial( { color: 0xd8321e, roughness: 0.5 } );
+			const cheeseMat = new THREE.MeshStandardMaterial( { color: 0xffa31a, roughness: 0.6 } );
+			const xs = [ - 0.75, - 0.45, - 0.15, 0.15, 0.45, 0.75 ];
+			cmd( 'add 6 x Mesh(IcosahedronGeometry(0.2)) "Lettuce" along the top' );
+			for ( let i = 0; i < xs.length; i ++ ) {
+				const l = new THREE.Mesh( new THREE.IcosahedronGeometry( 0.2, 0 ), lettuceMat ); l.name = 'Lettuce ' + ( i + 1 );
+				l.position.set( xs[ i ], 0.3, ( i % 2 ? 0.1 : - 0.1 ) ); l.scale.set( 1.2, 0.55, 1 ); l.rotation.set( i, i * 0.7, 0 ); add( l ); await wait( 250 );
+			}
+			cmd( 'add 5 x Mesh(BoxGeometry(0.14)) "Tomato"' );
+			for ( let i = 0; i < 5; i ++ ) {
+				const t = new THREE.Mesh( new THREE.BoxGeometry( 0.14, 0.14, 0.14 ), tomatoMat ); t.name = 'Tomato ' + ( i + 1 );
+				t.position.set( - 0.6 + i * 0.3, 0.42, ( i % 2 ? - 0.08 : 0.1 ) ); t.rotation.set( i, i * 1.3, 0 ); add( t ); await wait( 250 );
+			}
+			cmd( 'add 6 x Mesh(BoxGeometry(0.3, 0.03, 0.05)) "Cheese"' );
+			for ( let i = 0; i < 6; i ++ ) {
+				const c = new THREE.Mesh( new THREE.BoxGeometry( 0.3, 0.03, 0.05 ), cheeseMat ); c.name = 'Cheese ' + ( i + 1 );
+				c.position.set( - 0.7 + i * 0.28, 0.47, ( i % 2 ? 0.05 : - 0.06 ) ); c.rotation.y = i * 0.9; add( c ); await wait( 200 );
+			}
+			log( 'ok  ' + stats() );
+			await wait( 800 );
+
+			cmd( 'camera.position = (2.6, 1.9, 3.6); lookAt(0, 0, 0)' );
+			editor.viewportCamera.position.set( 2.6, 1.9, 3.6 ); editor.viewportCamera.lookAt( 0, 0, 0 );
+			editor.signals.cameraChanged.dispatch( editor.viewportCamera );
+			editor.select( shell );
+			const box = new THREE.Box3().setFromObject( shell ); const ctr = box.getCenter( new THREE.Vector3() );
+			log( 'ok  taco centre x=' + ctr.x.toFixed( 2 ) + ' z=' + ctr.z.toFixed( 2 ) + ' (centred), sits on plate' );
+			log( '# done: yellow taco built at the centre. ' + stats() + '. Tell me what to change.', '#ffd84d' );
+			window.__tacoBuilt = true;
+		</script>
+	</body>
+</html>
